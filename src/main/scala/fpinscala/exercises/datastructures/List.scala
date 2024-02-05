@@ -36,15 +36,15 @@ object List: // `List` companion object. Contains functions for creating and wor
   def append[A](a1: List[A], a2: List[A]): List[A] =
     a1 match
       case Nil => a2
-      case Cons(h,t) => Cons(h, append(t, a2))
+      case Cons(h, t) => Cons(h, append(t, a2))
 
-  def foldRight[A,B](as: List[A], acc: B, f: (A, B) => B): B = // Utility functions
+  def foldRight[A, B](as: List[A], acc: B, f: (A, B) => B): B = // Utility functions
     as match
       case Nil => acc
       case Cons(x, xs) => f(x, foldRight(xs, acc, f))
 
   def sumViaFoldRight(ns: List[Int]): Int =
-    foldRight(ns, 0, (x,y) => x + y)
+    foldRight(ns, 0, (x, y) => x + y)
 
   def productViaFoldRight(ns: List[Double]): Double =
     foldRight(ns, 1.0, _ * _) // `_ * _` is more concise notation for `(x,y) => x * y`; see sidebar
@@ -82,7 +82,7 @@ object List: // `List` companion object. Contains functions for creating and wor
     foldRight(l, 0, (_, b) => b + 1)
 
   @tailrec
-  def foldLeft[A,B](l: List[A], acc: B, f: (B, A) => B): B =
+  def foldLeft[A, B](l: List[A], acc: B, f: (B, A) => B): B =
     l match
       case Nil => acc
       case Cons(x, xs) => foldLeft(xs, f(acc, x), f)
@@ -118,17 +118,17 @@ object List: // `List` companion object. Contains functions for creating and wor
       case Nil => Nil
       case Cons(x, xs) => Cons(x.toString, doubleToString(xs))
 
-  def map[A,B](l: List[A], f: A => B): List[B] =
+  def map[A, B](l: List[A], f: A => B): List[B] =
     foldRightViaFoldLeft(l, Nil: List[B], (x, l2) => Cons(f(x), l2))
 
   def filter[A](as: List[A], f: A => Boolean): List[A] =
     foldRightViaFoldLeft(as, Nil: List[A], (x, l2) => if f(x) then Cons(x, l2) else l2)
 
-  def flatMap[A,B](as: List[A], f: A => List[B]): List[B] =
+  def flatMap[A, B](as: List[A], f: A => List[B]): List[B] =
     concat(map(as, f))
 
   def filterViaFlatMap[A](as: List[A], f: A => Boolean): List[A] =
-    flatMap(as, a => if f(a) then Cons(a, Nil) else Nil )
+    flatMap(as, a => if f(a) then Cons(a, Nil) else Nil)
 
   def addPairwise(a: List[Int], b: List[Int]): List[Int] =
     (a, b) match
@@ -136,10 +136,22 @@ object List: // `List` companion object. Contains functions for creating and wor
       case (Nil, _) => Nil
       case (Cons(x, xs), Cons(y, ys)) => Cons(x + y, addPairwise(xs, ys))
 
-  def zipWith[A, B,C](a: List[A], b: List[B], f: (A, B) => C): List[C] = 
-    (a,b) match
+  def zipWith[A, B, C](a: List[A], b: List[B], f: (A, B) => C): List[C] =
+    (a, b) match
       case (_, Nil) => Nil
       case (Nil, _) => Nil
       case (Cons(x, xs), Cons(y, ys)) => Cons(f(x, y), zipWith(xs, ys, f))
 
-  def hasSubsequence[A](sup: List[A], sub: List[A]): Boolean = ???
+  @tailrec
+  def startsWith[A](a: List[A], b: List[A]): Boolean =
+    (a, b) match
+      case (_, Nil) => true
+      case (Nil, _) => false
+      case (Cons(x, xs), Cons(y, ys)) => if (x == y) startsWith(xs, ys) else false
+
+  @tailrec
+  def hasSubsequence[A](sup: List[A], sub: List[A]): Boolean =
+    sup match
+      case Nil => sub == Nil
+      case _ if startsWith(sup, sub) => true
+      case _ => hasSubsequence(tail(sup), sub)
