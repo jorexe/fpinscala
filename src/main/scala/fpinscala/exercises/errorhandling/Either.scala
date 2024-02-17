@@ -8,18 +8,33 @@ enum Either[+E,+A]:
   case Left(get: E)
   case Right(get: A)
 
-  def map[B](f: A => B): Either[E, B] = ???
+  def map[B](f: A => B): Either[E, B] =
+    this match
+      case Left(e) => Left(e)
+      case Right(a) => Right(f(a))
 
-  def flatMap[EE >: E, B](f: A => Either[EE, B]): Either[EE, B] = ???
+  def flatMap[EE >: E, B](f: A => Either[EE, B]): Either[EE, B] =
+    this match
+      case Left(e) => Left(e)
+      case Right(a) => f(a)
 
-  def orElse[EE >: E, B >: A](b: => Either[EE, B]): Either[EE, B] = ???
+  def orElse[EE >: E, B >: A](b: => Either[EE, B]): Either[EE, B] =
+    this match
+      case Left(e) => b
+      case Right(a) => Right(a)
 
-  def map2[EE >: E, B, C](b: Either[EE, B])(f: (A, B) => C): Either[EE, C] = ???
+  def map2[EE >: E, B, C](b: Either[EE, B])(f: (A, B) => C): Either[EE, C] =
+    for
+      aa <- this
+      bb <- b
+    yield f(aa, bb)
 
 object Either:
-  def traverse[E,A,B](es: List[A])(f: A => Either[E, B]): Either[E, List[B]] = ???
+  def traverse[E,A,B](es: List[A])(f: A => Either[E, B]): Either[E, List[B]] =
+    es.foldRight[Either[E, List[B]]](Right(Nil))((a, acc) => f(a).map2(acc)(_ :: _))
 
-  def sequence[E,A](es: List[Either[E,A]]): Either[E,List[A]] = ???
+  def sequence[E,A](es: List[Either[E,A]]): Either[E,List[A]] =
+    traverse(es)(x => x)
 
   def mean(xs: IndexedSeq[Double]): Either[String, Double] = 
     if xs.isEmpty then
@@ -35,8 +50,15 @@ object Either:
     try Right(a)
     catch case NonFatal(t) => Left(t)
 
-  def map2All[E, A, B, C](a: Either[List[E], A], b: Either[List[E], B], f: (A, B) => C): Either[List[E], C] = ???
+  def map2All[E, A, B, C](a: Either[List[E], A], b: Either[List[E], B], f: (A, B) => C): Either[List[E], C] =
+    (a, b) match
+      case (Right(a), Right(b)) => Right(f(a, b))
+      case (Left(es), Right(_)) => Left(es)
+      case (Right(_), Left(es)) => Left(es)
+      case (Left(as), Left(bs)) => Left(as ++ bs)
 
-  def traverseAll[E, A, B](as: List[A], f: A => Either[List[E], B]): Either[List[E], List[B]] = ???
+  def traverseAll[E, A, B](as: List[A], f: A => Either[List[E], B]): Either[List[E], List[B]] =
+    as.foldRight[Either[List[E], List[B]]](Right(Nil))((a, acc) => map2All(f(a), acc,_ :: _))
 
-  def sequenceAll[E, A](as: List[Either[List[E], A]]): Either[List[E], List[A]] = ???
+  def sequenceAll[E, A](as: List[Either[List[E], A]]): Either[List[E], List[A]] =
+    traverseAll(as, x => x)
