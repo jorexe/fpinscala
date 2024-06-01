@@ -1,10 +1,25 @@
 package fpinscala.exercises.laziness
 
+import fpinscala.exercises.laziness.LazyList.{cons, empty}
+
+import scala.annotation.tailrec
+
 enum LazyList[+A]:
   case Empty
   case Cons(h: () => A, t: () => LazyList[A])
 
-  def toList: List[A] = ???
+  def toList: List[A] =
+    this match
+      case Empty => Nil
+      case Cons(h, t) => h() :: t().toList
+
+  def toListRec: List[A] =
+    @tailrec
+    def go(ll: LazyList[A], acc: List[A]): List[A] = ll match
+      case Cons(h, t) => go(t(), h() :: acc)
+      case _ => acc.reverse
+    go(this, Nil)
+
 
   def foldRight[B](z: => B)(f: (A, => B) => B): B = // The arrow `=>` in front of the argument type `B` means that the function `f` takes its second argument by name and may choose not to evaluate it.
     this match
@@ -19,15 +34,28 @@ enum LazyList[+A]:
     case Empty => None
     case Cons(h, t) => if (f(h())) Some(h()) else t().find(f)
 
-  def take(n: Int): LazyList[A] = ???
+  def take(n: Int): LazyList[A] = this match
+    case Cons(h, t) if n > 1 => cons(h(), t().take(n - 1))
+    case Cons(h, t) if n == 1 => cons(h(), empty)
+    case _ => empty
 
-  def drop(n: Int): LazyList[A] = ???
 
-  def takeWhile(p: A => Boolean): LazyList[A] = ???
+  def drop(n: Int): LazyList[A] = this match
+    case Cons(h, t) => t().drop(n - 1)
+    case _ => empty
 
-  def forAll(p: A => Boolean): Boolean = ???
+  def takeWhileImp(p: A => Boolean): LazyList[A] = this match
+    case Cons(h, t) if p(h()) => cons(h(), t().takeWhile(p))
+    case _ => empty
 
-  def headOption: Option[A] = ???
+  def takeWhile(p: A => Boolean): LazyList[A] =
+    foldRight(empty)((a, b) => if (p(a)) cons(a, b) else empty)
+
+  def forAll(p: A => Boolean): Boolean = !exists(!p(_))
+
+  def forAll2(p: A => Boolean): Boolean = foldRight(true)((a, b) => p(a) && b)
+
+  def headOption: Option[A] = foldRight(None: Option[A])((a, b) => Some(a))
 
   // 5.7 map, filter, append, flatmap using foldRight. Part of the exercise is
   // writing your own function signatures.
@@ -47,7 +75,7 @@ object LazyList:
     if as.isEmpty then empty 
     else cons(as.head, apply(as.tail*))
 
-  val ones: LazyList[Int] = LazyList.cons(1, ones)
+  val ones: LazyList[Int] = cons(1, ones)
 
   def continually[A](a: A): LazyList[A] = ???
 
