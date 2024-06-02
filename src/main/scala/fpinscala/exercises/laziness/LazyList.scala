@@ -1,5 +1,6 @@
 package fpinscala.exercises.laziness
 
+import fpinscala.answers.laziness.LazyList
 import fpinscala.exercises.laziness.LazyList.{cons, empty}
 
 import scala.annotation.tailrec
@@ -41,8 +42,8 @@ enum LazyList[+A]:
 
 
   def drop(n: Int): LazyList[A] = this match
-    case Cons(h, t) => t().drop(n - 1)
-    case _ => empty
+    case Cons(h, t) if n > 0 => t().drop(n - 1)
+    case _ => this
 
   def takeWhileImp(p: A => Boolean): LazyList[A] = this match
     case Cons(h, t) if p(h()) => cons(h(), t().takeWhile(p))
@@ -90,18 +91,37 @@ object LazyList:
 
   val ones: LazyList[Int] = cons(1, ones)
 
-  def continually[A](a: A): LazyList[A] = ???
+  def continuallyOld[A](a: A): LazyList[A] = cons(a, continually(a))
 
-  def from(n: Int): LazyList[Int] = ???
+  def continually[A](a: A): LazyList[A] =
+    lazy val single: LazyList[A] = cons(a, single)
+    single
 
-  lazy val fibs: LazyList[Int] = ???
+  def from(n: Int): LazyList[Int] = cons(n, from(n + 1))
 
-  def unfold[A, S](state: S)(f: S => Option[(A, S)]): LazyList[A] = ???
+  lazy val fibs: LazyList[Int] =
+    def start(prev: Int, curr: Int): LazyList[(Int, Int)] =
+      cons((prev, curr), start(curr, prev + curr))
+    start(0, 1).map(_._1)
 
-  lazy val fibsViaUnfold: LazyList[Int] = ???
+  def oldUnfold[A, S](state: S)(f: S => Option[(A, S)]): LazyList[A] =
+    def go(curr: S): LazyList[(A, S)] = f(curr) match
+      case Some(na, ns) => cons((na, curr), go(ns))
+      case None => empty
+    go(state).map(_._1)
 
-  def fromViaUnfold(n: Int): LazyList[Int] = ???
+  def unfold[A, S](state: S)(f: S => Option[(A, S)]): LazyList[A] =
+    f(state) match
+      case Some(na, ns) => cons(na, unfold(ns)(f))
+      case None => empty
 
-  def continuallyViaUnfold[A](a: A): LazyList[A] = ???
+  lazy val fibsViaUnfold: LazyList[Int] = unfold((0, 1))((a, b) => Some((a, (b, a + b))))
 
-  lazy val onesViaUnfold: LazyList[Int] = ???
+  def fromViaUnfold(n: Int): LazyList[Int] = unfold(n)(s => Some(s, s + 1))
+
+  def continuallyViaUnfold[A](a: A): LazyList[A] = unfold(a)(Some(a, _))
+
+  // There is no need to store state in here, we can use unit
+  def continuallyViaUnfold2[A](a: A): LazyList[A] = unfold(())(Some(a, _))
+
+  lazy val onesViaUnfold: LazyList[Int] = continuallyViaUnfold(1)
