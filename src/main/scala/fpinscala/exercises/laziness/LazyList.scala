@@ -1,7 +1,7 @@
 package fpinscala.exercises.laziness
 
 import fpinscala.answers.laziness.LazyList
-import fpinscala.exercises.laziness.LazyList.{cons, empty}
+import fpinscala.exercises.laziness.LazyList.{cons, empty, unfold}
 
 import scala.annotation.tailrec
 
@@ -62,7 +62,7 @@ enum LazyList[+A]:
   // writing your own function signatures.
   def map[B](f: A => B): LazyList[B] =
     foldRight(empty[B])((a, b) => cons(f(a), b))
-
+  
   def filter(f: A => Boolean): LazyList[A] =
     foldRight(empty[A])((a, b) => if f(a) then cons(a, b) else b)
 
@@ -74,8 +74,45 @@ enum LazyList[+A]:
 
   def betterFind(p: A => Boolean): Option[A] = filter(p).headOption
 
-  def startsWith[B](s: LazyList[B]): Boolean = ???
+  def startsWith[B >: A](s: LazyList[B]): Boolean = this.zipAll(s).forAll((a, b) => (a, b) match
+    case (Some(a), Some(b)) => a == b
+    case (_, None) => true
+    case _ => false
+  )
 
+  def betterStartsWith[B >: A](s: LazyList[B]): Boolean =
+    this.zipAll(s).takeWhile(_._2.isDefined).forAll2(_ == _)
+
+  def tails: LazyList[LazyList[A]] = 
+    unfold(this):
+      case Cons(h, t) => Some((Cons(h, t), t()))
+      case _ => None
+    .append(LazyList(empty))
+
+  def hasSubsequence[B >: A](s: LazyList[B]): Boolean = tails.exists(_.startsWith(s))
+
+  def mapViaUnfold[B](f: A => B): LazyList[B] = unfold(this):
+    case Cons(h, t) => Some((f(h()), t()))
+    case _ => None
+
+  def takeViaUnfold(n: Int): LazyList[A] = unfold((this, n)):
+    case (Cons(h, t), 1) => Some((h(), (empty, 0)))
+    case (Cons(h, t), n) if n >= 1 => Some((h(), (t(), n-1)))
+    case _ => None
+
+  def takeWhileViaUnfold(p: A => Boolean): LazyList[A] = unfold(this):
+    case Cons(h, t) if p(h()) => Some((h(), t()))
+    case _ => None
+
+  def zipWith[B, C](list: LazyList[B], f: (A, B) => C): LazyList[C] = unfold((this, list)):
+    case (Cons(h1, t1), Cons(h2, t2)) => Some((f(h1(), h2()), (t1(), t2())))
+    case _ => None
+
+  def zipAll[B](that: LazyList[B]): LazyList[(Option[A], Option[B])] = unfold((this, that)):
+    case (Cons(h1, t1), Cons(h2, t2)) => Some(((Some(h1()), Some(h2())), (t1(), t2())))
+    case (Cons(h1, t1), Empty) => Some(((Some(h1()), None), (t1(), empty)))
+    case (Empty, Cons(h2, t2)) => Some(((None, Some(h2())), (empty, t2())))
+    case _ => None
 
 object LazyList:
   def cons[A](hd: => A, tl: => LazyList[A]): LazyList[A] = 
