@@ -12,3 +12,5 @@ ones.map(_ * 2).filter(_ % 2 == 0).take(5).toList
 fibs.take(5).toList
 
 LazyList(1, 2, 3, 4, 5).tails.toList.map(_.toList)
+
+LazyList(1,2,3).scanRight(0)(_ + _).toList

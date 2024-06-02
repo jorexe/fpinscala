@@ -62,7 +62,7 @@ enum LazyList[+A]:
   // writing your own function signatures.
   def map[B](f: A => B): LazyList[B] =
     foldRight(empty[B])((a, b) => cons(f(a), b))
-  
+
   def filter(f: A => Boolean): LazyList[A] =
     foldRight(empty[A])((a, b) => if f(a) then cons(a, b) else b)
 
@@ -83,13 +83,28 @@ enum LazyList[+A]:
   def betterStartsWith[B >: A](s: LazyList[B]): Boolean =
     this.zipAll(s).takeWhile(_._2.isDefined).forAll2(_ == _)
 
-  def tails: LazyList[LazyList[A]] = 
+  def tails: LazyList[LazyList[A]] =
     unfold(this):
       case Cons(h, t) => Some((Cons(h, t), t()))
       case _ => None
     .append(LazyList(empty))
 
   def hasSubsequence[B >: A](s: LazyList[B]): Boolean = tails.exists(_.startsWith(s))
+
+  // Not performant
+  // Breaks laziness due to unfold going from left to right
+  def scanRight[B](init: B)(f: (A, => B) => B): LazyList[B] =
+    unfold(this):
+      case Cons(h, t) => Some((Cons(h, t).foldRight(init)(f), t()))
+      case _ => None
+    .append(LazyList(init))
+
+  def betterScanRight[B](init: B)(f: (A, => B) => B): LazyList[B] =
+      foldRight((init, LazyList(init))): (a, b0) =>
+        lazy val b1 = b0
+        val b2 = f(a, b1._1)
+        (b2, cons(b2, b1._2))
+      ._2
 
   def mapViaUnfold[B](f: A => B): LazyList[B] = unfold(this):
     case Cons(h, t) => Some((f(h()), t()))
