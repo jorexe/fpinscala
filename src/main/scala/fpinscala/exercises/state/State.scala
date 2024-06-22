@@ -38,6 +38,11 @@ object RNG:
     if (n == 0) (n.toDouble, next)
     else (1 / n.toDouble, next)
 
+  def doubleViaMap(rng: RNG): (Double, RNG) =
+    map(nonNegativeInt)( a =>
+      if (a == 0) a.toDouble
+      else 1 / a.toDouble
+    )(rng)
 
   def intDouble(rng: RNG): ((Int,Double), RNG) =
     val (n1, next1) = nonNegativeInt(rng)
@@ -64,11 +69,51 @@ object RNG:
 
     go(count, Nil, rng)
 
-  def map2[A, B, C](ra: Rand[A], rb: Rand[B])(f: (A, B) => C): Rand[C] = ???
+  def map2[A, B, C](ra: Rand[A], rb: Rand[B])(f: (A, B) => C): Rand[C] =
+    rnc =>
+      val (a, an) = ra(rnc)
+      val (b, bn) = rb(an)
+      (f(a, b), bn)
 
-  def sequence[A](rs: List[Rand[A]]): Rand[List[A]] = ???
+  def both[A, B](ra: Rand[A], rb: Rand[B]): Rand[(A,B)] =
+    map2(ra, rb)(_ -> _)
 
-  def flatMap[A, B](r: Rand[A])(f: A => Rand[B]): Rand[B] = ???
+  def intDoubleViaBoth(rng: RNG): ((Int, Double), RNG) =
+    both(nonNegativeInt, double)(rng)
+
+  def nonNegativeLessThan(n: Int): Rand[Int] =
+    flatMap(nonNegativeInt)(i => rng =>
+      val mod = i % n
+      if (i + (n - 1) - mod >= 0) (mod, rng)
+      else nonNegativeLessThan(n)(rng)
+    )
+
+  def nonNegativeLessThanBetter(n: Int): Rand[Int] =
+    flatMap(nonNegativeInt)(i =>
+      val mod = i % n
+      if (i + (n - 1) - mod >= 0) unit(mod)
+      else nonNegativeLessThan(n)
+    )
+
+  /**
+   *
+   * @param rs list((rng) => (x1, rng), (rng) => (x2, rng))
+   * @return (rng) => ((x1, x2), rng)
+   */
+  def sequence[A](rs: List[Rand[A]]): Rand[List[A]] =
+    rng =>
+      rs.foldRight[(List[A], RNG)]((Nil, rng))((rand, ls) =>
+        val (x, next) = rand(ls._2)
+        (x :: ls._1, next)
+      )
+
+  def sequenceBetter[A](rs: List[Rand[A]]): Rand[List[A]] =
+    rs.foldRight(unit(Nil: List[A]))((r, acc) => map2(r, acc)(_ :: _))
+
+  def flatMap[A, B](r: Rand[A])(f: A => Rand[B]): Rand[B] =
+    rng =>
+      val (x, r1) = r(rng)
+      f(x)(r1)
 
   def mapViaFlatMap[A, B](r: Rand[A])(f: A => B): Rand[B] = ???
 
