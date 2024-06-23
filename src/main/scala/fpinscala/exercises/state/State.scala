@@ -1,5 +1,8 @@
 package fpinscala.exercises.state
 
+import fpinscala.exercises.state.Input.{Coin, Turn}
+import fpinscala.exercises.state.State.{get, modify, sequence, set, traverse}
+
 import scala.annotation.tailrec
 
 
@@ -115,9 +118,11 @@ object RNG:
       val (x, r1) = r(rng)
       f(x)(r1)
 
-  def mapViaFlatMap[A, B](r: Rand[A])(f: A => B): Rand[B] = ???
+  def mapViaFlatMap[A, B](r: Rand[A])(f: A => B): Rand[B] = flatMap(r)(a => unit(f(a)))
 
-  def map2ViaFlatMap[A, B, C](ra: Rand[A], rb: Rand[B])(f: (A, B) => C): Rand[C] = ???
+  def map2ViaFlatMap[A, B, C](ra: Rand[A], rb: Rand[B])(f: (A, B) => C): Rand[C] =
+    flatMap(ra)(a => map(rb)(b => f(a, b)))
+
 
 opaque type State[S, +A] = S => (A, S)
 
@@ -126,20 +131,85 @@ object State:
     def run(s: S): (A, S) = underlying(s)
 
     def map[B](f: A => B): State[S, B] =
-      ???
+      flatMap(a => unit(f(a)))
 
     def map2[B, C](sb: State[S, B])(f: (A, B) => C): State[S, C] =
-      ???
+      flatMap(a => sb.map(b => f(a, b)))
+
+    def map2Comprehension[B, C](sb: State[S, B])(f: (A, B) => C): State[S, C] =
+      for
+        a <- underlying
+        b <- sb
+      yield f(a, b)
 
     def flatMap[B](f: A => State[S, B]): State[S, B] =
-      ???
+      State(s =>
+        val (a, s1) = run(s)
+        f(a)(s1)
+      )
 
   def apply[S, A](f: S => (A, S)): State[S, A] = f
+
+  def unit[S, A](a: A): State[S, A] = s => (a, s)
+
+  def modify[S](f: S => S): State[S, Unit] =
+    for
+      s <- get // Gets the current state and assigns it to `s`.
+      _ <- set(f(s)) // Sets the new state to `f` applied to `s`.
+    yield ()
+
+  def get[S]: State[S, S] = s => (s, s)
+
+  def set[S](s: S): State[S, Unit] = _ => ((), s)
+
+  def sequence[S, A](actions: List[State[S, A]]): State[S, List[A]] =
+    actions.foldRight(unit[S, List[A]](Nil))((action, acc) => action.map2(acc)(_ :: _))
+
+  def traverse[S, A, B](as: List[A])(f: A => State[S, B]): State[S, List[B]] =
+    as.foldRight(unit[S, List[B]](Nil))((a, acc) => f(a).map2(acc)(_ :: _))
 
 enum Input:
   case Coin, Turn
 
-case class Machine(locked: Boolean, candies: Int, coins: Int)
+case class Machine(locked: Boolean, candies: Int, coins: Int):
+
+  def empty: Boolean = candies == 0
+  def insertCoin(): Machine =
+    if (empty || !locked) this
+    else Machine(false, candies, coins + 1)
+
+  def turnKnob(): Machine =
+    if (empty || locked) this
+    else Machine(true, candies - 1, coins)
 
 object Candy:
-  def simulateMachine(inputs: List[Input]): State[Machine, (Int, Int)] = ???
+  /**
+   * My implementation
+   */
+  def action(i: Input): State[Machine, Unit] = modify(m =>
+    i match
+      case Coin => m.insertCoin()
+      case Turn => m.turnKnob()
+  )
+
+  def simulateMachine(inputs: List[Input]): State[Machine, (Int, Int)] = State((m: Machine) => 
+    val (_, m2) = sequence(inputs.map(action)).run(m)
+    ((m2.coins, m2.candies), m2)
+  )
+
+  /**
+   * Answer implementation
+   * 
+   * I prefer more my approach that put domain logic inside the machine
+   * And checks only one condition instead of pattern matching
+   */
+  def update(i: Input): Machine => Machine = m =>
+    i match
+      case Coin => m.insertCoin()
+      case Turn => m.turnKnob()
+
+  def simulateMachineSolution(inputs: List[Input]): State[Machine, (Int, Int)] =
+    for
+      _ <- State.traverse(inputs)(i => State.modify(update(i)))
+      s <- State.get
+    yield (s.coins, s.candies)
