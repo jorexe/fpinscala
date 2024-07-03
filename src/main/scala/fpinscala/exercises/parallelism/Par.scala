@@ -93,6 +93,15 @@ object Par:
       l.map(asyncF(a => if f(a) then List(a) else List()))
     sequence(pars).map(_.flatten) // convenience method on `List` for concatenating a list of lists
 
+  def reduce[A](pas: IndexedSeq[A])(f: (A, A) => A): Par[A] =
+    if pas.isEmpty then throw new Exception("Can't reduce empty list")
+    else if pas.size == 1 then unit(pas.head)
+    else
+      val (l, r) = pas.splitAt(pas.size / 2)
+      val lp = fork(reduce(l)(f))
+      val rp = fork(reduce(r)(f))
+      lp.map2(rp)(f)
+
   def equal[A](e: ExecutorService)(p: Par[A], p2: Par[A]): Boolean =
     p(e).get == p2(e).get
 
