@@ -95,6 +95,15 @@ object Nonblocking:
     def parMap[A, B](as: IndexedSeq[A])(f: A => B): Par[IndexedSeq[B]] =
       sequenceBalanced(as.map(asyncF(f)))
 
+    def reduce[A](pas: IndexedSeq[A])(f: (A, A) => A): Par[A] =
+      if pas.isEmpty then throw new Exception("Can't reduce empty list")
+      else if pas.size == 1 then unit(pas.head)
+      else
+        val (l, r) = pas.splitAt(pas.size / 2)
+        val lp = fork(reduce(l)(f))
+        val rp = fork(reduce(r)(f))
+        lp.map2(rp)(f)
+
     // exercise answers
 
     /*
