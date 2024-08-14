@@ -44,6 +44,14 @@ class NonblockingSuite extends PropSuite:
     case p ** ps =>
       checkFlatMap(p, ps)(Par.chooser[Int, String](p)(ps))
 
+  test("Nonblocking.choiceViaChooser")(genParInt ** genParInt ** genParBoolean):
+    case t ** f ** p =>
+      checkChoice(t, f, p)(Par.choiceViaChooser[Int](p)(t, f))
+
+  test("Nonblocking.choiceNViaChooser")(genParInt ** genListOfParString):
+    case p ** ps =>
+      checkChoiceN(p, ps)(Par.choiceNViaChooser[String](p)(ps))
+
   test("Nonblocking.choiceViaFlatMap")(genParInt ** genParInt ** genParBoolean):
     case t ** f ** p =>
       checkChoice(t, f, p)(Par.choiceViaFlatMap[Int](p)(f, t))
