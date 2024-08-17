@@ -37,9 +37,8 @@ object RNG:
     else (n.abs, next)
 
   def double(rng: RNG): (Double, RNG) =
-    val (n, next) = nonNegativeInt(rng)
-    if (n == 0) (n.toDouble, next)
-    else (1 / n.toDouble, next)
+    val (i, r) = nonNegativeInt(rng)
+    (i / (Int.MaxValue.toDouble + 1), r)
 
   def doubleViaMap(rng: RNG): (Double, RNG) =
     map(nonNegativeInt)( a =>

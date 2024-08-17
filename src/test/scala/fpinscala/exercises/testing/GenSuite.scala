@@ -14,19 +14,8 @@ class GenSuite extends PropSuite:
   private val shortSample = 1000
   private val genRNG: ExhGen[RNG] = ExhGen.int.map(i => RNG.Simple(i.toLong))
 
-// Gen tests: Before using these tests (starting from Exercise 8.4),
-// add the next block to fpinscala.exercises.testing.Gen.scala file
-/* ToDo: fpinscala.exercises.testing.Gen.scala file's block
-opaque type Gen[+A] = State[RNG, A]
-
-object Gen:
-  extension [A](self: Gen[A])
-    // We should use a different method name to avoid looping (not 'run')
-    def next(rng: RNG): (A, RNG) = self.run(rng)
-*/
-
 // Gen tests:
-/*
+
   test("Exercise 8.4")(ExhGen.int ** ExhGen.int ** genRNG):
     case n ** m ** rng =>
       val (start, stopExclusive) = if n < m then (n, m) else (m, n)
@@ -91,7 +80,6 @@ object Gen:
       val (unionList3, _) = genUnion3.listOfN(shortSample).next(rng)
       assert(unionList3.count(_ == n) >= shortSample / 5, "g2 is twice as common as g1")
       assert(unionList3.count(_ == m) >= shortSample / 2, "g2 is twice as common as g1")
-*/
 
 
 // Prop tests: Before using these tests (starting from Exercise 8.9),
