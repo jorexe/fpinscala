@@ -1,44 +1,105 @@
 package fpinscala.exercises.testing
 
 import fpinscala.exercises.state.*
-import fpinscala.exercises.parallelism.*
-import fpinscala.exercises.parallelism.Par.Par
-import Gen.*
-import Prop.*
+import fpinscala.exercises.testing.Prop.*
+import fpinscala.exercises.testing.Prop.Result.*
 
-import java.util.concurrent.{ExecutorService, Executors}
 import scala.annotation.targetName
 
 /*
 The library developed in this chapter goes through several iterations. This file is just the
 shell, which you can fill in and modify while working through the chapter.
 */
-opaque type FailedCase = String
-opaque type SuccessCount = Int
 
-object SuccessCount:
-  extension (sc: SuccessCount)
-    @targetName("sum")
-    def +(other: SuccessCount): SuccessCount = sc + other
-
-trait Prop:
-  self =>
-
-  def check: Either[(FailedCase, SuccessCount), SuccessCount]
-
-  @targetName("and")
-  infix def &&(that: Prop): Prop = new Prop:
-    override def check: Either[(FailedCase, SuccessCount), SuccessCount] =
-      for
-        c1 <- self.check
-        c2 <- that.check
-      yield c1 + c2
-
+opaque type Prop = (TestCases, RNG) => Result
 
 object Prop:
 
+  opaque type SuccessCount = Int
 
-  def forAll[A](gen: Gen[A])(f: A => Boolean): Prop = ???
+  object SuccessCount:
+    extension (x: SuccessCount) def toInt: Int = x
+
+    def fromInt(x: Int): SuccessCount = x
+
+  opaque type TestCases = Int
+
+  object TestCases:
+    extension (x: TestCases) def toInt: Int = x
+
+    def fromInt(x: Int): TestCases = x
+
+  opaque type MaxSize = Int
+
+  object MaxSize:
+    extension (x: MaxSize) def toInt: Int = x
+
+    def fromInt(x: Int): MaxSize = x
+
+  opaque type FailedCase = String
+
+  object FailedCase:
+    extension (f: FailedCase) def string: String = f
+
+    def fromString(s: String): FailedCase = s
+
+  enum Result:
+    case Passed
+    case Falsified(failure: FailedCase, successes: SuccessCount)
+
+    def isFalsified: Boolean = this match
+      case Passed => false
+      case Falsified(_, _) => true
+
+  def forAll[A](as: Gen[A])(f: A => Boolean): Prop =
+    (n, rng) =>
+      randomLazyList(as)(rng)
+        .zip(LazyList.from(0))
+        .take(n)
+        .map:
+          case (a, i) =>
+            try
+              if (f(a)) then Result.Passed
+              else Result.Falsified(a.toString, i)
+            catch
+              case e: Exception =>
+                Result.Falsified(buildMsg(a, e), i)
+        .find(_.isFalsified)
+        .getOrElse(Result.Passed)
+
+  def randomLazyList[A](g: Gen[A])(rng: RNG): LazyList[A] =
+    LazyList.unfold(rng)(rng => Some(g.run(rng)))
+
+  def buildMsg[A](s: A, e: Exception): String =
+    s"""
+        test case: $s
+        generated an exception: ${e.getMessage}
+        stack trace:
+        ${e.getStackTrace.mkString("\n")}
+    """.trim
+
+  def apply(f: (TestCases, RNG) => Result): Prop =
+    (n, rng) => f(n, rng)
+
+  extension (self: Prop)
+    def check(
+               maxSize: MaxSize = 100,
+               testCases: TestCases = 100,
+               rng: RNG = RNG.Simple(System.currentTimeMillis)
+             ): Result =
+      self(testCases, rng)
+
+    @targetName("and")
+    def &&(that: Prop): Prop =
+      (n, rng) => self(n, rng) match
+        case Passed => that(n, rng)
+        case x => x
+
+    @targetName("or")
+    def ||(that: Prop): Prop =
+      (n, rng) => self(n, rng) match
+        case Falsified(_, _) => that(n, rng)
+        case x => x
 
 opaque type Gen[+A] = State[RNG, A]
 
@@ -79,9 +140,5 @@ object Gen:
       size.flatMap(self.listOfN)
     def flatMap[B](f: A => Gen[B]): Gen[B] =
       State.flatMap(self)(f)
-
-//trait Gen[A]:
-//  def map[B](f: A => B): Gen[B] = ???
-//  def flatMap[B](f: A => Gen[B]): Gen[B] = ???
 
 trait SGen[+A]
