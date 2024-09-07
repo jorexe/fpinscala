@@ -100,20 +100,8 @@ class GenSuite extends PropSuite:
     assertEquals((propFalsified || propPassed).check(), Passed)
     assert((propFalsified || propFalsified).check().isFalsified)
 
-
-
-// SGen tests: Before using these tests (starting from Exercise 8.10),
-// add the next block to fpinscala.exercises.testing.Gen.scala file
-/* ToDo: fpinscala.exercises.testing.Gen.scala file's block
-object SGen:
-  def apply[A](f: Int => Gen[A]): SGen[A] = f
-
-  extension [A](self: SGen[A])
-    def apply(n: Int): Gen[A] = self(n)
-*/
-
 // SGen tests
-/*
+
   test("Exercises 8.10 + 8.11")(ExhGen.int ** genRNG):
     case n ** rng0 =>
       val sGenA = SGen(Gen.unit(_))
@@ -125,13 +113,13 @@ object SGen:
       val (isEven1, _) = sGenA.flatMap(aToGenB).apply(n).next(rng1)
       assertEquals(n % 2 == 0, isEven1)
 
-  test("Exercise 8.12")(genShortNumber ** genRNG):
-    case n ** rng =>
-      val (randomBooleanList, _) = Gen.boolean.list(n).next(rng)
-      assertEquals(randomBooleanList.length, n)
+//  test("Exercise 8.12")(genShortNumber ** genRNG):
+//    case n ** rng =>
+//      val (randomBooleanList, _) = Gen.boolean.list(n).next(rng)
+//      assertEquals(randomBooleanList.length, n)
+//
+//  test("Exercise 8.13")(genShortNumber ** genRNG):
+//    case n ** rng =>
+//      val (randomNonEmptyList, _) = Gen.boolean.nonEmptyList(n).next(rng)
+//      assert(randomNonEmptyList.nonEmpty)
 
-  test("Exercise 8.13")(genShortNumber ** genRNG):
-    case n ** rng =>
-      val (randomNonEmptyList, _) = Gen.boolean.nonEmptyList(n).next(rng)
-      assert(randomNonEmptyList.nonEmpty)
-*/

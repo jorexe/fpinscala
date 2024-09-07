@@ -141,4 +141,20 @@ object Gen:
     def flatMap[B](f: A => Gen[B]): Gen[B] =
       State.flatMap(self)(f)
 
-trait SGen[+A]
+    def unsized: SGen[A] = _ => self
+
+  opaque type SGen[+A] = Int => Gen[A]
+
+  object SGen:
+
+    def apply[A](f: Int => Gen[A]): SGen[A] = f
+
+    extension [A](self: SGen[A])
+
+      def apply(n: Int): Gen[A] = self(n)
+
+      def map[B](f: A => B): SGen[B] =
+        n => self(n).map(f)
+
+      def flatMap[B](f: A => SGen[B]): SGen[B] =
+        n => self(n).flatMap(f(_)(n))
