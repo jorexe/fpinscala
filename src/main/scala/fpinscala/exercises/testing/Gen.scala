@@ -1,6 +1,8 @@
 package fpinscala.exercises.testing
 
 import fpinscala.exercises.state.*
+import fpinscala.exercises.testing.Gen.SGen
+import fpinscala.exercises.testing.Gen.SGen.*
 import fpinscala.exercises.testing.Prop.*
 import fpinscala.exercises.testing.Prop.Result.*
 
@@ -11,7 +13,7 @@ The library developed in this chapter goes through several iterations. This file
 shell, which you can fill in and modify while working through the chapter.
 */
 
-opaque type Prop = (TestCases, RNG) => Result
+opaque type Prop = (MaxSize, TestCases, RNG) => Result
 
 object Prop:
 
@@ -51,7 +53,7 @@ object Prop:
       case Passed => false
       case Falsified(_, _) => true
 
-  def forAll[A](as: Gen[A])(f: A => Boolean): Prop =
+  def forAll[A](as: Gen[A])(f: A => Boolean): Prop = Prop:
     (n, rng) =>
       randomLazyList(as)(rng)
         .zip(LazyList.from(0))
@@ -66,6 +68,16 @@ object Prop:
                 Result.Falsified(buildMsg(a, e), i)
         .find(_.isFalsified)
         .getOrElse(Result.Passed)
+      
+  @targetName("forAllSized")
+  def forAll[A](g: SGen[A])(f: A => Boolean): Prop =
+    (max, n, rng) =>
+      val casesPerSize = (n.toInt - 1) / max.toInt + 1
+      val props: LazyList[Prop] = 
+        LazyList.from(0).take((n.toInt min max.toInt) + 1).map(i => forAll(g(i))(f))
+      val prop: Prop = 
+        props.map[Prop](p => (max, n, rng) => p(max, casesPerSize, rng)).toList.reduce(_ && _)
+      prop(max, n, rng)
 
   def randomLazyList[A](g: Gen[A])(rng: RNG): LazyList[A] =
     LazyList.unfold(rng)(rng => Some(g.run(rng)))
@@ -79,7 +91,7 @@ object Prop:
     """.trim
 
   def apply(f: (TestCases, RNG) => Result): Prop =
-    (n, rng) => f(n, rng)
+    (_, n, rng) => f(n, rng)
 
   extension (self: Prop)
     def check(
@@ -87,18 +99,18 @@ object Prop:
                testCases: TestCases = 100,
                rng: RNG = RNG.Simple(System.currentTimeMillis)
              ): Result =
-      self(testCases, rng)
+      self(maxSize, testCases, rng)
 
     @targetName("and")
     def &&(that: Prop): Prop =
-      (n, rng) => self(n, rng) match
-        case Passed => that(n, rng)
+      (max, n, rng) => self(max, n, rng) match
+        case Passed => that(max, n, rng)
         case x => x
 
     @targetName("or")
     def ||(that: Prop): Prop =
-      (n, rng) => self(n, rng) match
-        case Falsified(_, _) => that(n, rng)
+      (max, n, rng) => self(max, n, rng) match
+        case Falsified(_, _) => that(max, n, rng)
         case x => x
 
 opaque type Gen[+A] = State[RNG, A]
@@ -142,6 +154,8 @@ object Gen:
       State.flatMap(self)(f)
 
     def unsized: SGen[A] = _ => self
+
+    def list: SGen[List[A]] = listOfN(_)
 
   opaque type SGen[+A] = Int => Gen[A]
 
