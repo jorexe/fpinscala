@@ -48,9 +48,11 @@ object Prop:
   enum Result:
     case Passed
     case Falsified(failure: FailedCase, successes: SuccessCount)
+    case Proved
 
     def isFalsified: Boolean = this match
       case Passed => false
+      case Proved => false
       case Falsified(_, _) => true
 
   def forAll[A](as: Gen[A])(f: A => Boolean): Prop = Prop:
@@ -111,11 +113,13 @@ object Prop:
           println(s"! Falsified after $n passed tests:\n $msg")
         case Passed =>
           println(s"+ OK, passed $testCases tests")
+        case Proved =>
+          println(s"+ OK, proved property")
 
     @targetName("and")
     def &&(that: Prop): Prop =
       (max, n, rng) => self(max, n, rng) match
-        case Passed => that(max, n, rng)
+        case Passed | Proved => that(max, n, rng)
         case x => x
 
     @targetName("or")
