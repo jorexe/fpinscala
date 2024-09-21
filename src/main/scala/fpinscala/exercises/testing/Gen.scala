@@ -101,6 +101,17 @@ object Prop:
              ): Result =
       self(maxSize, testCases, rng)
 
+    def run(
+               maxSize: MaxSize = 100,
+               testCases: TestCases = 100,
+               rng: RNG = RNG.Simple(System.currentTimeMillis)
+             ): Unit =
+      self(maxSize, testCases, rng) match
+        case Falsified(msg, n) =>
+          println(s"! Falsified after $n passed tests:\n $msg")
+        case Passed =>
+          println(s"+ OK, passed $testCases tests")
+
     @targetName("and")
     def &&(that: Prop): Prop =
       (max, n, rng) => self(max, n, rng) match
@@ -156,6 +167,8 @@ object Gen:
     def unsized: SGen[A] = _ => self
 
     def list: SGen[List[A]] = listOfN(_)
+    
+    def nonEmptyList: SGen[List[A]] = n => listOfN(1 max n)
 
   opaque type SGen[+A] = Int => Gen[A]
 
